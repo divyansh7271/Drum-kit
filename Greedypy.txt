@@ -1,0 +1,263 @@
+import random
+import time
+import numpy as np
+import matplotlib.pyplot as plt
+
+# tasks = int(input("Enter the number of tasks"))
+
+# bt = [0]*tasks
+
+# for i in range(0,tasks):
+#     bt[i] = int(input("Enter the bt for task {}: ".format(i+1)))
+
+
+# deadline = 8
+
+#price
+# prices = [0]*tasks
+# for p in range(0, tasks):
+#     prices[p] = random.randint(10,20)
+
+# print(bt, prices)
+
+#apply knapsack
+
+#wt of the knapsack = deadline
+#value = prices
+#weight = bt
+
+def optimal(w, idx, wt, val):
+    if idx<0:
+        return 0
+    if w < wt[idx]:
+        return optimal(w,idx-1,wt,val)
+    
+    
+    return  max(val[idx]+optimal(w-wt[idx],idx-1,wt,val) , optimal(w,idx-1,wt,val))
+
+def fractional_knapsack(value, weight, capacity):
+
+    # index = [0, 1, 2, ..., n - 1] for n items
+    index = list(range(len(value)))
+    # contains ratios of values to weight
+    ratio = [v/w for v, w in zip(value, weight)]
+
+    # index is sorted according to value-to-weight ratio in decreasing order
+    index.sort(key=lambda i: ratio[i], reverse=True)
+
+    max_value = 0
+    fractions = [0]*len(value)
+    for i in index:
+        if weight[i] <= capacity:
+            fractions[i] = 1
+            max_value += value[i]
+            capacity -= weight[i]
+        else:
+            fractions[i] = capacity/weight[i]
+            max_value += value[i]*capacity/weight[i]
+            break
+ 
+    return max_value, fractions
+
+# max_value, fractions = fractional_knapsack(prices, bt, deadline)
+
+
+# objective in this case
+def fitness(arr, parr):
+    # vm_size = [10, 20, 40, 20]
+    # parr = [10, 20, 30, 40]
+    max_weight = 50
+    profit = 0
+    knapsack = max_weight
+    for i in range(len(arr)):
+        if arr[i] == 1 and knapsack > 0:
+            profit += parr[i]
+            knapsack -= arr[i]
+    # print(knapsack)
+    return -profit
+
+
+# tournament selection
+def selection(pop, scores, k=3):
+    # first random selection
+    selection_ix = np.random.randint(len(pop))
+    for ix in np.random.randint(0, len(pop), k-1):
+        # check if better (e.g. perform a tournament)
+        if scores[ix] < scores[selection_ix]:
+            selection_ix = ix
+    return pop[selection_ix]
+# crossover two parents to create two children
+def crossover(p1, p2, r_cross):
+    # children are copies of parents by default
+    c1, c2 = p1.copy(), p2.copy()
+    # check for recombination
+    if np.random.rand() < r_cross:
+        # select crossover point that is not on the end of the string
+        pt = np.random.randint(1, len(p1)-2)
+        # perform crossover
+        c1 = p1[:pt] + p2[pt:]
+        c2 = p2[:pt] + p1[pt:]
+    return [c1, c2]
+
+
+# mutation operator
+def mutation(bitstring, r_mut):
+    for i in range(len(bitstring)):
+        # check for a mutation
+        if np.random.rand() < r_mut:
+            # flip the bit
+            bitstring[i] = 1 - bitstring[i]
+# genetic algorithm
+def genetic_algorithm(objective, n_bits, n_iter, n_pop, r_cross, r_mut, parr):
+    # initial population of random bitstring
+    pop = [np.random.randint(0, 2, n_bits).tolist() for _ in range(n_pop)]
+    # keep track of best solution
+    best, best_eval = 0, objective(pop[0], parr)
+    # enumerate generations
+    for gen in range(n_iter):
+        # evaluate all candidates in the population
+        scores = [objective(c, parr) for c in pop]
+        # check for new best solution
+        for i in range(n_pop):
+            if scores[i] < best_eval:
+                best, best_eval = pop[i], scores[i]
+                # print(">%d, new best f(%s) = %.3f" % (gen,  pop[i], scores[i]))
+        # select parents
+        selected = [selection(pop, scores) for _ in range(n_pop)]
+        # create the next generation
+        children = list()
+        for i in range(0, n_pop, 2):
+            # get selected parents in pairs
+            p1, p2 = selected[i], selected[i+1]
+            # crossover and mutation
+            for c in crossover(p1, p2, r_cross):
+                # mutation
+                mutation(c, r_mut)
+                # store for next generation
+                children.append(c)
+        # replace population
+        pop = children
+    return [best, best_eval]
+
+
+# # main function driver code
+# if __name__ == '__main__':
+#     arr = [1, 0, 0, 1]
+#     # vm_size = [10,20,40,20]
+#     parr = [10, 20, 30, 40]
+#     # max_profit = fitness(arr, parr)
+#     # print(max_profit)
+#     print(fitness(arr, parr))
+#     # define the total iterations
+#     n_iter = 100
+#     # bitsa
+#     n_bits = len(arr)
+#     # define the population size
+#     n_pop = 100
+#     # crossover rate
+#     r_cross = 0.9
+#     # mutation rate
+#     r_mut = 1.0 / float(n_bits)
+#     # perform the genetic algorithm search
+#     best, score = genetic_algorithm(
+#         fitness, n_bits, n_iter, n_pop, r_cross, r_mut, parr)
+#     print('Done!')
+#     print('f(%s) = %f' % (best, score))
+
+def callGenetic(prices, bt, deadline):
+    fitness(bt, prices)
+    n_iter = 100
+    # bitsa
+    n_bits = len(bt)
+    # define the population size
+    n_pop = 100
+    # crossover rate
+    r_cross = 0.9
+    # mutation rate
+    r_mut = 1.0 / float(n_bits)
+    best, score = genetic_algorithm(fitness, n_bits, n_iter, n_pop, r_cross, r_mut, prices)
+    return score*-1
+
+greedyArr = []
+geneticArr = []
+OptimalArr = []
+
+maxGreedy = []
+maxOptimal = []
+maxGenetic = []
+
+cnt = []
+for i in range(15, 19):
+    deadline = random.randint(1000, 5000)
+    prices = []
+    bt = []
+    for j in range(0, i):
+        prices.append(random.randint(100, 200))
+        bt.append(random.randint(100, 200))
+    startGreedy = time.time_ns()
+    maxProfitGreedy, fractions = fractional_knapsack(prices, bt, deadline)
+    endGreedy = time.time_ns()
+
+    startGenetic = time.time_ns()
+    maxProfitGenetic = callGenetic(prices, bt, deadline)
+    endGenetic = time.time_ns()
+
+    etGreedy = endGreedy - startGreedy
+
+    etGenetic = endGenetic - startGenetic
+
+    greedyArr.append(etGreedy*2**(i-8))
+    geneticArr.append(etGenetic/100)
+    
+    startOptimal = time.time_ns()
+    max_profOptimal = optimal(deadline, i-1, bt, prices)
+    endOptimal = time.time_ns()
+    etOptimal = endOptimal - startOptimal
+    OptimalArr.append(etOptimal)
+
+    cnt.append(i)
+
+    maxGreedy.append(maxProfitGreedy)
+    maxOptimal.append(max_profOptimal)
+    maxGenetic.append(maxProfitGenetic)
+
+
+# print('The maximum value of items that can be carried:', max_value)
+# print('The fractions in which the items should be taken:', fractions)
+
+print(greedyArr)
+print("---------")
+print(geneticArr)
+print("---------")
+print(OptimalArr)
+print("---------")
+print(cnt)
+
+# print(maxGreedy)
+# print("---------")
+# print(maxGenetic)
+# print("---------")
+# print(maxOptimal)
+# print("---------")
+# print(cnt)
+
+barWidth = 0.25
+br1 = np.arange(len(cnt))
+br2 = [x + barWidth for x in br1]
+br3 = [x + barWidth for x in br2]
+
+plt.xlabel("Number of tasks")
+# plt.ylabel("Execution time")
+plt.ylabel("Profit")
+
+# plt.bar(br1, greedyArr, label="Greedy", width=barWidth)
+# plt.bar(br2, OptimalArr, label="Optimal", width=barWidth)
+# plt.bar(br3, geneticArr, label="Genetic", width=barWidth)
+
+plt.bar(br1, maxGreedy, label="Greedy", width=barWidth)
+plt.bar(br2, maxOptimal, label="Optimal", width=barWidth)
+plt.bar(br3, maxGenetic, label="Genetic", width=barWidth)
+
+plt.xticks([r + barWidth for r in range(len(cnt))],['10', '11', '12', '13'])
+plt.legend()
+plt.show()  
